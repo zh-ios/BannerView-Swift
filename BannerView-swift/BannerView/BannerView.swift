@@ -116,8 +116,8 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
         self.pageControl.contentHorizontalAlignment = .center
         self.addSubview(self.pageControl)
         // 注意：下面这两个属性有冲突（hidesForSinglePage优先级比较高），当设置了 hidesForSinglePage = true 时，如果不止有一页那么再设置 isHidden = true 没有卵用！！！。反之，如果不设置这个属性则可以通过 isHidden 这个属性控制pageControll的显示和隐藏。
-//        self.pageControl.hidesForSinglePage = true
-        self.pageControl.isHidden = true
+        self.pageControl.hidesForSinglePage = true
+//        self.pageControl.isHidden = true
     }
     
     fileprivate func addTimer() {
