@@ -19,7 +19,6 @@ class ViewController: UIViewController {
 //        banner.mode = .vertical
         
         self.view.addSubview(banner)
-       banner.isHidePageControl = true
         banner.imgArr = [
             "https://raw.githubusercontent.com/onevcat/Kingfisher/master/images/kingfisher-1.jpg",
             "https://raw.githubusercontent.com/onevcat/Kingfisher/master/images/kingfisher-2.jpg",
