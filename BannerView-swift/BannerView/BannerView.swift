@@ -27,24 +27,20 @@ enum ScrollMode: Int {
 class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIScrollViewDelegate {
     var placeholder: String?
     var duration = 5.0
-    var imgArr: [String]! {
+    var imgArr: [String]? {
         didSet {
-            self.pageControl.numberOfPages = self.imgArr.count
+            guard (self.imgArr?.count)! > 1 else {
+                self.collectionView.isScrollEnabled = false
+                return
+            }
+            scrollTo(crtPage: 0 + 1 , animated: false)
+            if self.isAutoScroll == true {
+                addTimer()
+            }
+            self.pageControl.numberOfPages = (self.imgArr?.count)!
             self.collectionView.reloadData()
         }
     }
-    fileprivate var collectionView: UICollectionView!
-    fileprivate var pageControl: UIPageControl!
-    fileprivate var currentPage = 0
-    fileprivate var timer: Timer?
-    lazy fileprivate var layout:UICollectionViewFlowLayout = {
-        let layout = UICollectionViewFlowLayout.init()
-        layout.scrollDirection = UICollectionViewScrollDirection.horizontal
-        
-        layout.itemSize = CGSize.init(width: self.frame.size.width, height: self.frame.size.height)
-        layout.minimumLineSpacing = 0
-        return layout
-    }()
     var mode: ScrollMode = .horizontal {
         didSet {
             if mode == .horizontal {
@@ -57,13 +53,18 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
         }
     }
     var isAutoScroll = false
-    var isHidePageControl: Bool? {
-        didSet {
-            if isHidePageControl != nil {
-               self.pageControl.isHidden = isHidePageControl!
-            }
-        }
-    }
+    fileprivate var collectionView: UICollectionView!
+    fileprivate var pageControl: UIPageControl!
+    fileprivate var timer: Timer?
+    // 懒加载layout
+    lazy fileprivate var layout:UICollectionViewFlowLayout = {
+        let layout = UICollectionViewFlowLayout.init()
+        layout.scrollDirection = UICollectionViewScrollDirection.horizontal
+        layout.itemSize = CGSize.init(width: self.frame.size.width, height: self.frame.size.height)
+        layout.minimumLineSpacing = 0
+        return layout
+    }()
+
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -82,9 +83,13 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
             return
         }
         super.willMove(toSuperview: newSuperview)
-        guard self.imgArr.count > 1 else {
-           self.collectionView.isScrollEnabled = false
-           return
+        // 如果imgArr 为 nil return
+        if self.imgArr == nil {
+            return
+        }
+        guard (self.imgArr?.count)! > 1 else {
+            self.collectionView.isScrollEnabled = false
+            return
         }
         scrollTo(crtPage: 0 + 1 , animated: false)
         if self.isAutoScroll == true {
@@ -106,16 +111,20 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
     
     fileprivate func setupPageControl() {
         self.pageControl = UIPageControl.init(frame: CGRect.init(x: 0, y: self.frame.size.height - 22, width: self.frame.size.width, height: 22))
-        self.pageControl.hidesForSinglePage = true
         self.pageControl.currentPageIndicatorTintColor = UIColor.blue
         self.pageControl.pageIndicatorTintColor = UIColor.white
         self.pageControl.contentHorizontalAlignment = .center
         self.addSubview(self.pageControl)
+        // 注意：下面这两个属性有冲突（hidesForSinglePage优先级比较高），当设置了 hidesForSinglePage = true 时，如果不止有一页那么再设置 isHidden = true 没有卵用！！！。反之，如果不设置这个属性则可以通过 isHidden 这个属性控制pageControll的显示和隐藏。
+//        self.pageControl.hidesForSinglePage = true
+        self.pageControl.isHidden = true
     }
     
     fileprivate func addTimer() {
-        self.timer = Timer.scheduledTimer(timeInterval: self.duration, target: self, selector: #selector(nextPage), userInfo: nil, repeats: true)
-        RunLoop.current.add(self.timer!, forMode: RunLoopMode.commonModes)
+        if self.timer == nil {
+            self.timer = Timer.scheduledTimer(timeInterval: self.duration, target: self, selector: #selector(nextPage), userInfo: nil, repeats: true)
+            RunLoop.current.add(self.timer!, forMode: RunLoopMode.commonModes)
+        }
     }
     
     fileprivate func invalidateTimer() {
@@ -124,7 +133,7 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
     }
     
     @objc fileprivate func nextPage() {
-        if self.imgArr.count > 1 {
+        if (self.imgArr?.count)! > 1 {
             var crtPage = 0
             if self.mode == .horizontal {
                 crtPage = lroundf(Float(self.collectionView.contentOffset.x/self.frame.size.width))
@@ -145,8 +154,8 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
 
     // collectionView delegate
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        if self.imgArr.count > 1 {
-           return self.imgArr.count + 2
+        if (self.imgArr?.count)! > 1 {
+           return (self.imgArr?.count)! + 2
         }
         return 1
     }
@@ -155,17 +164,17 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellID, for: indexPath) as! BannerCollectionCell
         cell.placeholder = self.placeholder
         if indexPath.row == 0 {
-            cell.imgUrl = self.imgArr.last
-        } else if indexPath.row == self.imgArr.count + 1 {
-            cell.imgUrl = self.imgArr.first
+            cell.imgUrl = self.imgArr?.last
+        } else if indexPath.row == (self.imgArr?.count)! + 1 {
+            cell.imgUrl = self.imgArr?.first
         } else {
-            cell.imgUrl = self.imgArr[indexPath.row - 1]
+            cell.imgUrl = self.imgArr?[indexPath.row - 1]
         }
         return cell
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let row = self.imgArr.count > 1 ? (indexPath.item - 1) : 0
+        let row = (self.imgArr?.count)! > 1 ? (indexPath.item - 1) : 0
         print("------>\(row)")
     }
 
@@ -180,9 +189,9 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
         let x = self.mode == .horizontal ? self.frame.size.width : self.frame.size.height
         
         if offset == 0 {
-            scrollTo(crtPage: self.imgArr.count, animated: false)
-            self.pageControl.currentPage = self.imgArr.count - 1
-        } else if offset == CGFloat(self.imgArr.count + 1) * x {
+            scrollTo(crtPage: (self.imgArr?.count)!, animated: false)
+            self.pageControl.currentPage = (self.imgArr?.count)! - 1
+        } else if offset == CGFloat((self.imgArr?.count)! + 1) * x {
             scrollTo(crtPage: 1, animated: false)
             self.pageControl.currentPage = 0
         } else {
@@ -191,10 +200,12 @@ class BannerView: UIView,UICollectionViewDelegate,UICollectionViewDataSource,UIS
     }
     
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        // pause
         self.timer?.fireDate = Date.distantFuture
     }
     
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        // resume
         self.timer?.fireDate = Date.init(timeIntervalSinceNow: self.duration)
     }
 }
